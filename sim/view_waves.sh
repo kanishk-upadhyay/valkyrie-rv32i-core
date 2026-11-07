@@ -18,14 +18,20 @@ else
     exit 1
 fi
 
-if command -v gtkwave &> /dev/null; then
+if command -v surfer &> /dev/null; then
+    echo "[WAVES] Launching Surfer waveform viewer with $TARGET_VCD..."
+    surfer "$TARGET_VCD" &
+elif command -v gtkwave &> /dev/null; then
     echo "[WAVES] Launching GTKWave with $TARGET_VCD..."
     gtkwave "$TARGET_VCD" &
 elif [ -d "/Applications/gtkwave.app" ]; then
     echo "[WAVES] Launching macOS GTKWave application..."
     open -a gtkwave "$TARGET_VCD"
 else
-    echo "[WAVES] GTKWave binary not detected in PATH or Applications."
+    echo "[WAVES] No native waveform viewer (surfer or gtkwave) detected."
     echo "[WAVES] The waveform dump is ready at: $TARGET_VCD"
-    echo "[WAVES] Install GTKWave (brew install --cask gtkwave) or open $TARGET_VCD with your preferred viewer."
+    echo "[WAVES] Recommended viewer options on macOS:"
+    echo "        1. Install Surfer (Modern Rust-based VCD viewer): brew install surfer"
+    echo "        2. VS Code: Install the 'WaveTrace' extension to open .vcd files directly"
+    echo "        3. Community GTKWave tap: brew install randomplum/gtkwave/gtkwave"
 fi
