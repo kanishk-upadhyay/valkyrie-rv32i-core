@@ -153,7 +153,7 @@ def main():
     print("=" * 82)
 
     if all_passed:
-        print("\n\033[92m>>> VERIFICATION COMPLETE: ALL 8 TEST SUITES PASSED WITH ZERO ERRORS <<<\033[0m\n")
+        print(f"\n\033[92m>>> VERIFICATION COMPLETE: ALL {len(test_files)} TEST SUITES PASSED WITH ZERO ERRORS <<<\033[0m\n")
         sys.exit(0)
     else:
         print("\n\033[91m>>> VERIFICATION FAILED: ONE OR MORE TESTS FAILED <<<\033[0m\n")

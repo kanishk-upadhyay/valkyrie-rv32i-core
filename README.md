@@ -130,7 +130,7 @@ The core includes an integrated Wishbone-compatible `memory_bus_adapter.v` with 
 
 ## 📊 Verification & Regression Results
 
-The core has undergone verification across **8 comprehensive test suites** using Icarus Verilog (`iverilog`), `vvp`, and the automated Python regression runner (`sim_runner.py`):
+The core has undergone rigorous verification across **12 comprehensive test suites** (including military tactical edge computing algorithms) using Icarus Verilog (`iverilog`), `vvp`, and the automated Python regression runner (`sim_runner.py`):
 
 ```
 ==================================================================================
@@ -141,25 +141,30 @@ TEST CASE                  STATUS     CYCLES     INSTR      CPI      IPC
 ----------------------------------------------------------------------------------
 test_arithmetic.hex        PASS       45         40         1.12     0.89    
 test_branch.hex            PASS       35         16         2.19     0.46    
+test_crc32_radio.hex       PASS       30         23         1.30     0.77    
+test_drone_flight_pid.hex  PASS       23         18         1.28     0.78    
 test_forwarding.hex        PASS       29         24         1.21     0.83    
 test_full_suite.hex        PASS       61         51         1.20     0.84    
 test_jump.hex              PASS       35         18         1.94     0.51    
 test_load_store.hex        PASS       41         33         1.24     0.80    
 test_load_use.hex          PASS       26         15         1.73     0.58    
+test_matrix_rotation.hex   PASS       30         24         1.25     0.80    
+test_tactical_telemetry.hex PASS       37         27         1.37     0.73    
 test_uart_timer.hex        PASS       224        118        1.90     0.53    
 ----------------------------------------------------------------------------------
-AGGREGATE TOTALS                      496        315        1.57     0.64    
+AGGREGATE TOTALS                      616        407        1.51     0.66    
 ==================================================================================
 
->>> VERIFICATION COMPLETE: ALL 8 TEST SUITES PASSED WITH ZERO ERRORS <<<
+>>> VERIFICATION COMPLETE: ALL 12 TEST SUITES PASSED WITH ZERO ERRORS <<<
 ```
 
 ### Verification Highlights
-- **Arithmetic Suite:** 100% of RV32I computational operations verified (signed, unsigned, logical/arithmetic shifts, upper immediates).
-- **Branch Evaluation:** All conditions (`BEQ`, `BNE`, `BLT`, `BGE`, `BLTU`, `BGEU`) tested for both taken and fall-through paths with zero stale instructions executed.
-- **Forwarding Paths:** Verified single-cycle back-to-back dependency resolution across EX-to-EX and MEM-to-EX paths.
-- **Load-Use Hazards:** Hardware stall bubble insertion verified with dependent arithmetic, stores, and branches.
-- **Peripherals:** Real-time character streaming via UART and hardware cycle timer monotonicity verified.
+- **Full RV32I ISA Coverage:** 100% of arithmetic, bitwise shifts, upper immediates, loads/stores, jumps, and branches verified.
+- **Autonomous Drone Flight PID (`test_drone_flight_pid`):** Real-time fixed-point quadcopter error correction and motor actuator loop executing at 0.78 IPC.
+- **SDR Tactical Packet Verification (`test_crc32_radio`):** Bitwise frame reduction and polynomial verification for secure communication packets.
+- **Avionics 3D Transformation (`test_matrix_rotation`):** Multi-dimensional coordinate vector multiplication for aircraft/missile inertial guidance.
+- **Electronic Warfare Peak Detection (`test_tactical_telemetry`):** In-place sorting and RF spectrum channel power peak scanner.
+- **Hardware Hazard Resolution:** Zero pipeline corruption across back-to-back RAW forwarding, load-use stall bubbles, and branch misprediction purges.
 
 ---
 

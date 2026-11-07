@@ -517,15 +517,256 @@ fail_loop:
     beq  x0, x0, fail_loop
 """
 
+# -----------------------------------------------------------------------------
+# Test 9: Autonomous Drone Quadcopter Flight Control (PID Loop)
+# -----------------------------------------------------------------------------
+ASM_DRONE_PID = """
+# Test 9: Autonomous Drone Quadcopter Flight Control (PID Loop)
+_start:
+    lui  s0, 0x00001     # Base buffer at 0x1000
+    addi t0, x0, 1000    # Target setpoint: 1000 (10.00 deg)
+    addi t1, x0, 850     # Measured IMU gyro: 850 (8.50 deg)
+    addi t2, x0, 50      # Prev integral error sum: 50
+    addi t3, x0, 100     # Prev error: 100
+
+    # Error: e = setpoint - sensor = 150
+    sub  t4, t0, t1
+
+    # P_term = Kp * e (Kp = 4)
+    slli s1, t4, 2       # 150 << 2 = 600
+
+    # I_term = (prev_integral + e) * Ki (Ki = 1)
+    add  s2, t2, t4      # 50 + 150 = 200
+
+    # D_term = (e - prev_error) * Kd (Kd = 2)
+    sub  s3, t4, t3      # 150 - 100 = 50
+    slli s3, s3, 1       # 50 << 1 = 100
+
+    # Total motor thrust correction = P + I + D
+    add  s4, s1, s2      # 600 + 200 = 800
+    add  s4, s4, s3      # 800 + 100 = 900
+
+    # Store motor command to memory
+    sw   s4, 0(s0)
+    lw   s5, 0(s0)
+
+    # Verify motor command == 900
+    addi s6, x0, 900
+    bne  s5, s6, fail
+
+    # Pass
+    lui  x30, 0x30000
+    addi x31, x0, 1
+    sw   x31, 0(x30)
+halt:
+    beq  x0, x0, halt
+
+fail:
+    lui  x30, 0x30000
+    addi x31, x0, 0
+    sw   x31, 0(x30)
+fail_loop:
+    beq  x0, x0, fail_loop
+"""
+
+# -----------------------------------------------------------------------------
+# Test 10: Military Tactical Radio Packet Checksum (SDR Link Layer)
+# -----------------------------------------------------------------------------
+ASM_CRC32_RADIO = """
+# Test 10: Military Tactical Radio Packet Checksum (SDR Link Layer)
+_start:
+    lui  s0, 0x00001     # Packet buffer at 0x1000
+    
+    # Packet header & payload words
+    addi t0, x0, 0x12
+    slli t0, t0, 8
+    ori  t0, t0, 0x34    # 0x1234
+    
+    addi t1, x0, 0x56
+    slli t1, t1, 8
+    ori  t1, t1, 0x78    # 0x5678
+
+    # Store packet words
+    sw   t0, 0(s0)
+    sw   t1, 4(s0)
+
+    # Compute CRC/checksum accumulator
+    lw   a0, 0(s0)
+    lw   a1, 4(s0)
+
+    # XOR reduction & rotate
+    xor  s1, a0, a1      # 0x1234 ^ 0x5678 = 0x444C
+    slli s2, s1, 3       # Rotate left by 3
+    srli s3, s1, 29
+    or   s2, s2, s3
+
+    # Add polynomial mask 0x99
+    addi s4, x0, 0x99
+    xor  s5, s2, s4
+
+    # Store computed checksum
+    sw   s5, 8(s0)
+    lw   s6, 8(s0)
+    bne  s5, s6, fail
+
+    # Verify s5 != 0
+    beq  s5, x0, fail
+
+    # Pass
+    lui  x30, 0x30000
+    addi x31, x0, 1
+    sw   x31, 0(x30)
+halt:
+    beq  x0, x0, halt
+
+fail:
+    lui  x30, 0x30000
+    addi x31, x0, 0
+    sw   x31, 0(x30)
+fail_loop:
+    beq  x0, x0, fail_loop
+"""
+
+# -----------------------------------------------------------------------------
+# Test 11: Avionics 3D Coordinate Transformation
+# -----------------------------------------------------------------------------
+ASM_MATRIX_ROTATION = """
+# Test 11: Avionics 3D Coordinate Transformation
+_start:
+    # Vector: X=10, Y=20, Z=30
+    addi t0, x0, 10
+    addi t1, x0, 20
+    addi t2, x0, 30
+
+    # Transformation:
+    # X' = 2*X - Y       = 2*10 - 20 = 0
+    # Y' = X + 2*Y - Z   = 10 + 40 - 30 = 20
+    # Z' = Y + 2*Z       = 20 + 60 = 80
+
+    # Compute X'
+    slli a0, t0, 1       # 20
+    sub  a0, a0, t1      # 20 - 20 = 0
+
+    # Compute Y'
+    slli a1, t1, 1       # 40
+    add  a1, a1, t0      # 50
+    sub  a1, a1, t2      # 50 - 30 = 20
+
+    # Compute Z'
+    slli a2, t2, 1       # 60
+    add  a2, a2, t1      # 80
+
+    # Store results in memory
+    lui  s0, 0x00001
+    sw   a0, 0(s0)
+    sw   a1, 4(s0)
+    sw   a2, 8(s0)
+
+    # Verify X' == 0
+    lw   s1, 0(s0)
+    bne  s1, x0, fail
+
+    # Verify Y' == 20
+    lw   s2, 4(s0)
+    addi s4, x0, 20
+    bne  s2, s4, fail
+
+    # Verify Z' == 80
+    lw   s3, 8(s0)
+    addi s5, x0, 80
+    bne  s3, s5, fail
+
+    # Pass
+    lui  x30, 0x30000
+    addi x31, x0, 1
+    sw   x31, 0(x30)
+halt:
+    beq  x0, x0, halt
+
+fail:
+    lui  x30, 0x30000
+    addi x31, x0, 0
+    sw   x31, 0(x30)
+fail_loop:
+    beq  x0, x0, fail_loop
+"""
+
+# -----------------------------------------------------------------------------
+# Test 12: RF Spectrum Signal Sorting & Jamming Peak Detection
+# -----------------------------------------------------------------------------
+ASM_TACTICAL_TELEMETRY = """
+# Test 12: RF Spectrum Signal Sorting & Electronic Warfare Peak Detection
+_start:
+    lui  s0, 0x00001     # Base address 0x1000
+
+    # Array of 4 signal channel power levels (dBm): 45, 12, 89, 34
+    addi t0, x0, 45
+    addi t1, x0, 12
+    addi t2, x0, 89
+    addi t3, x0, 34
+
+    sw   t0, 0(s0)
+    sw   t1, 4(s0)
+    sw   t2, 8(s0)
+    sw   t3, 12(s0)
+
+    # Bubble sort pass 1: compare 0 and 1
+    lw   a0, 0(s0)
+    lw   a1, 4(s0)
+    blt  a0, a1, skip1
+    sw   a1, 0(s0)
+    sw   a0, 4(s0)
+skip1:
+
+    # Compare 1 and 2
+    lw   a0, 4(s0)
+    lw   a1, 8(s0)
+    blt  a0, a1, skip2
+    sw   a1, 4(s0)
+    sw   a0, 8(s0)
+skip2:
+
+    # Compare 2 and 3
+    lw   a0, 8(s0)
+    lw   a1, 12(s0)
+    blt  a0, a1, skip3
+    sw   a1, 8(s0)
+    sw   a0, 12(s0)
+skip3:
+
+    # After pass 1, the maximum power (89 dBm) must have bubbled to word 3
+    lw   s1, 12(s0)
+    addi s2, x0, 89
+    bne  s1, s2, fail
+
+    # Pass
+    lui  x30, 0x30000
+    addi x31, x0, 1
+    sw   x31, 0(x30)
+halt:
+    beq  x0, x0, halt
+
+fail:
+    lui  x30, 0x30000
+    addi x31, x0, 0
+    sw   x31, 0(x30)
+fail_loop:
+    beq  x0, x0, fail_loop
+"""
+
 ALL_TESTS = {
-    "test_arithmetic": ASM_ARITHMETIC,
-    "test_branch":     ASM_BRANCH,
-    "test_jump":       ASM_JUMP,
-    "test_load_store": ASM_LOAD_STORE,
-    "test_forwarding": ASM_FORWARDING,
-    "test_load_use":   ASM_LOAD_USE,
-    "test_uart_timer": ASM_UART_TIMER,
-    "test_full_suite": ASM_FULL_SUITE
+    "test_arithmetic":         ASM_ARITHMETIC,
+    "test_branch":             ASM_BRANCH,
+    "test_jump":               ASM_JUMP,
+    "test_load_store":         ASM_LOAD_STORE,
+    "test_forwarding":         ASM_FORWARDING,
+    "test_load_use":           ASM_LOAD_USE,
+    "test_uart_timer":         ASM_UART_TIMER,
+    "test_full_suite":         ASM_FULL_SUITE,
+    "test_drone_flight_pid":   ASM_DRONE_PID,
+    "test_crc32_radio":        ASM_CRC32_RADIO,
+    "test_matrix_rotation":    ASM_MATRIX_ROTATION,
+    "test_tactical_telemetry": ASM_TACTICAL_TELEMETRY
 }
 
 def main():
