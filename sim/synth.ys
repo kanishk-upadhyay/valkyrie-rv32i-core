@@ -32,4 +32,4 @@ flatten
 stat -tech cmos
 
 # 6. Critical Path & Topological Timing Analysis
-timeest -clk clk
+ltp

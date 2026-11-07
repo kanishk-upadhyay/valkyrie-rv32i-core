@@ -37,7 +37,7 @@ def parse_synth_log(log_path):
     total_tx = int(tx_match.group(1)) if tx_match else 50964
     kge = total_tx / 4.0 / 1000.0
 
-    # Critical path
+    # Critical path (register-to-register depth)
     cp_match = re.search(r'Critical path is (\d+) nodes long', content)
     cp_nodes = int(cp_match.group(1)) if cp_match else 166
 
