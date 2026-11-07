@@ -8,14 +8,15 @@
 VCD_FILE="${1:-valkyrie_sim.vcd}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-if [ ! -f "$SCRIPT_DIR/$VCD_FILE" ] && [ ! -f "$VCD_FILE" ]; then
-    echo "[WAVES] VCD file '$VCD_FILE' not found. Generating now..."
-    cd "$SCRIPT_DIR" && make waves
+# Locate file (either in SCRIPT_DIR or current directory)
+if [ -f "$SCRIPT_DIR/$VCD_FILE" ]; then
+    TARGET_VCD="$SCRIPT_DIR/$VCD_FILE"
+elif [ -f "$VCD_FILE" ]; then
+    TARGET_VCD="$VCD_FILE"
+else
+    echo "[WAVES] Error: VCD file '$VCD_FILE' not found."
+    exit 1
 fi
-
-# Locate file
-TARGET_VCD="$SCRIPT_DIR/$VCD_FILE"
-[ -f "$TARGET_VCD" ] || TARGET_VCD="$VCD_FILE"
 
 if command -v gtkwave &> /dev/null; then
     echo "[WAVES] Launching GTKWave with $TARGET_VCD..."

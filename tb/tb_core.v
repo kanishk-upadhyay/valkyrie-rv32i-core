@@ -207,8 +207,12 @@ module tb_core;
         $readmemh(hex_file, ram);
 
         // Waveform Dump Setup
-        if ($test$plusargs("VCD") || $value$plusargs("VCD=%s", vcd_file)) begin
-            if (vcd_file == "") vcd_file = "sim/valkyrie_sim.vcd";
+        if ($value$plusargs("VCD=%s", vcd_file)) begin
+            $display("[TB] VCD Waveform dump enabled: %0s", vcd_file);
+            $dumpfile(vcd_file);
+            $dumpvars(0, tb_core);
+        end else if ($test$plusargs("VCD")) begin
+            vcd_file = "valkyrie_sim.vcd";
             $display("[TB] VCD Waveform dump enabled: %0s", vcd_file);
             $dumpfile(vcd_file);
             $dumpvars(0, tb_core);
