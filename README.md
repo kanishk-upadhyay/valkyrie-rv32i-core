@@ -6,12 +6,14 @@
 [![CI Status](https://github.com/kanishk-upadhyay/valkyrie-rv32i-core/actions/workflows/ci.yml/badge.svg)](https://github.com/kanishk-upadhyay/valkyrie-rv32i-core)
 [![ISA](https://img.shields.io/badge/ISA-RISC--V%20RV32I%20Base%20Integer-blue.svg)](https://riscv.org/)
 [![Language](https://img.shields.io/badge/Language-Verilog%20(IEEE%201364--2001)-green.svg)](https://en.wikipedia.org/wiki/Verilog)
-[![Verification](https://img.shields.io/badge/Verification-100%25%20Passing-brightgreen.svg)](tb/)
-[![Synthesis](https://img.shields.io/badge/Synthesis-Zero%20Latches%20%7C%20FPGA%2FASIC%20Ready-orange.svg)](rtl/)
+[![Verification](https://img.shields.io/badge/Verification-100%25%20Passing%20(13%2F13)-brightgreen.svg)](tb/)
+[![Synthesis](https://img.shields.io/badge/Synthesis-12.74%20kGE%20%7C%20Zero%20Latches-orange.svg)](sim/)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
 **Developed for the Indian Army Internship Programme (AICTE)**  
 *Targeting the Directorate General of Signals (DG Signals) — Military Embedded Computing, Tactical Edge Processors for Avionics, Autonomous UAV Guidance, and Software-Defined Radios (SDR).*
+
+> 💡 **Live Interactive Visual Simulator:** Open [`docs/interactive_explainer.html`](docs/interactive_explainer.html) in any browser to step cycle-by-cycle through pipeline stages, inspect live data forwarding paths, observe stall bubble injections, and visualize hardware interrupt preemption in real-time.
 
 </div>
 
@@ -217,8 +219,17 @@ The core has been synthesized using the **Yosys Open-Source Synthesis Suite v0.7
 | **SkyWater 130nm CMOS** | Sovereign Open-Source Silicon | $\sim 0.127\text{ mm}^2$ | $\sim 6.8\text{ ns}$ | **147 MHz** |
 | **TSMC 65nm LP** | Tactical Defense Avionics | $\sim 0.023\text{ mm}^2$ | $\sim 2.7\text{ ns}$ | **370 MHz** |
 | **TSMC 28nm HPC+** | Military SDR & Drone Swarm | $\sim 0.007\text{ mm}^2$ | $\sim 1.3\text{ ns}$ | **769 MHz** |
-- **Electronic Warfare Peak Detection (`test_tactical_telemetry`):** In-place sorting and RF spectrum channel power peak scanner.
-- **Hardware Hazard Resolution:** Zero pipeline corruption across back-to-back RAW forwarding, load-use stall bubbles, and branch misprediction purges.
+
+---
+
+## 💡 Key Architectural Trade-Offs & Engineering Decisions
+
+| Design Decision | Alternative Considered | Engineering Rationale & Silicon Impact |
+| :--- | :--- | :--- |
+| **Branch Evaluation in EX Stage** | Branch Evaluation in ID Stage | Evaluating branches in ID requires dedicated 32-bit comparators and an extra forwarding network to ID, widening critical path timing in decode. Resolving in EX reuses the existing ALU and forwarding multiplexers with a minimal 2-cycle penalty on taken branches, maximizing achievable $F_{max}$ (up to 769 MHz on 28nm). |
+| **Write-Through Register File Bypass** | Stall-on-Write-Read Conflict | Implemented internal bypass logic within `regfile.v` ($RData = (WAddr == RAddr\ \&\&\ WEn) \ ?\ WData : Reg[RAddr]$). Eliminates same-cycle WAW/RAW hazards, maintaining sustained single-cycle throughput without injecting pipeline bubbles. |
+| **Priority-Encoded Forwarding Unit** | Strict Pipeline Stalls | Prioritizes `EX/MEM` over `MEM/WB` forwarding when both stages target the same destination register. Guarantees that the chronologically most recent instruction data is supplied to the ALU without pipeline stalls. |
+| **Hardware Interrupt Preemption with Single-Cycle Vectoring** | Software-Polled Interrupts | Dedicated `csr_unit.v` monitors `irq_external` and `irq_timer` continuously. Upon trigger, the core automatically saves `mepc`, updates `mcause`, disables `mstatus.MIE`, purges speculative instructions, and jumps to `mtvec` in a single cycle—guaranteeing deterministic, microsecond-grade reaction time for tactical edge avionics. |
 
 ---
 
