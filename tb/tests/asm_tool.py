@@ -30,6 +30,22 @@ def parse_imm(s, labels=None, pc=0):
         return labels[s]
     return int(s, 0)
 
+CSR_NAMES = {
+    'mstatus':  0x300,
+    'mie':      0x304,
+    'mtvec':    0x305,
+    'mscratch': 0x340,
+    'mepc':     0x341,
+    'mcause':   0x342,
+    'mip':      0x344
+}
+
+def parse_csr(s):
+    s = s.strip().lower()
+    if s in CSR_NAMES:
+        return CSR_NAMES[s]
+    return int(s, 0)
+
 def assemble_line(line, labels, pc):
     # Strip comments
     line = re.sub(r'#.*$', '', line).strip()
@@ -206,6 +222,49 @@ def assemble_line(line, labels, pc):
         return 0x00000073
     if op == 'ebreak':
         return 0x00100073
+    if op == 'mret':
+        return 0x30200073
+
+    # CSR Pseudoinstructions
+    if op == 'csrr':
+        # csrr rd, csr -> csrrs rd, csr, x0
+        rd = parse_reg(args[0])
+        csr = parse_csr(args[1])
+        return (csr << 20) | (0 << 15) | (2 << 12) | (rd << 7) | 0x73
+    if op == 'csrw':
+        # csrw csr, rs1 -> csrrw x0, csr, rs1
+        csr = parse_csr(args[0])
+        rs1 = parse_reg(args[1])
+        return (csr << 20) | (rs1 << 15) | (1 << 12) | (0 << 7) | 0x73
+    if op == 'csrs':
+        # csrs csr, rs1 -> csrrs x0, csr, rs1
+        csr = parse_csr(args[0])
+        rs1 = parse_reg(args[1])
+        return (csr << 20) | (rs1 << 15) | (2 << 12) | (0 << 7) | 0x73
+    if op == 'csrc':
+        # csrc csr, rs1 -> csrrc x0, csr, rs1
+        csr = parse_csr(args[0])
+        rs1 = parse_reg(args[1])
+        return (csr << 20) | (rs1 << 15) | (3 << 12) | (0 << 7) | 0x73
+
+    # CSR Standard Instructions
+    csr_ops = {
+        'csrrw': 1,
+        'csrrs': 2,
+        'csrrc': 3,
+        'csrrwi': 5,
+        'csrrsi': 6,
+        'csrrci': 7
+    }
+    if op in csr_ops:
+        rd = parse_reg(args[0])
+        csr = parse_csr(args[1])
+        funct3 = csr_ops[op]
+        if funct3 >= 5:
+            rs1 = parse_imm(args[2], labels, pc) & 0x1F
+        else:
+            rs1 = parse_reg(args[2])
+        return (csr << 20) | (rs1 << 15) | (funct3 << 12) | (rd << 7) | 0x73
 
     raise ValueError(f"Unsupported instruction or directive: '{line}'")
 

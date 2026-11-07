@@ -52,7 +52,12 @@ module memory_bus_adapter (
     output reg         uart_tx_valid,
     output reg  [7:0]  uart_tx_data,
     output reg         sim_halt,
-    output reg  [31:0] sim_status
+    output reg  [31:0] sim_status,
+
+    // Interrupt Lines to Core
+    input  wire        ext_irq_pin,
+    output wire        irq_external,
+    output wire        irq_timer
 );
 
     // Hardware Signature: "VALK" (0x56414C4B)
@@ -62,8 +67,10 @@ module memory_bus_adapter (
     wire is_sram_access = (core_dmem_addr < 32'h1000_0000);
     wire is_uart_data   = (core_dmem_addr == 32'h1000_0000);
     wire is_uart_status = (core_dmem_addr == 32'h1000_0004);
+    wire is_irq_inject  = (core_dmem_addr == 32'h1000_0008);
     wire is_mtime_low   = (core_dmem_addr == 32'h2000_0000);
     wire is_mtime_high  = (core_dmem_addr == 32'h2000_0004);
+    wire is_mtimecmp    = (core_dmem_addr == 32'h2000_0008);
     wire is_sim_ctrl    = (core_dmem_addr == 32'h3000_0000);
     wire is_wb_access   = (core_dmem_addr >= 32'h4000_0000);
 
@@ -82,16 +89,33 @@ module memory_bus_adapter (
     assign sram_dwmask = core_dmem_wmask;
 
     // ------------------------------------------------------------------------
-    // 3. 64-bit Hardware Real-Time Tactical Timer
+    // 3. 64-bit Hardware Real-Time Tactical Timer & Comparator
     // ------------------------------------------------------------------------
     reg [63:0] mtime_counter;
+    reg [31:0] mtimecmp_reg;
+    reg        irq_inject_reg;
+
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
-            mtime_counter <= 64'd0;
+            mtime_counter  <= 64'd0;
+            mtimecmp_reg   <= 32'hFFFF_FFFF;
+            irq_inject_reg <= 1'b0;
         end else begin
             mtime_counter <= mtime_counter + 64'd1;
+
+            if (core_dmem_wen && core_dmem_req) begin
+                if (is_mtimecmp) begin
+                    mtimecmp_reg <= core_dmem_wdata;
+                end
+                if (is_irq_inject) begin
+                    irq_inject_reg <= core_dmem_wdata[0];
+                end
+            end
         end
     end
+
+    assign irq_external = ext_irq_pin | irq_inject_reg;
+    assign irq_timer    = (mtime_counter[31:0] >= mtimecmp_reg);
 
     // ------------------------------------------------------------------------
     // 4. Peripheral Control & Register Writes
@@ -131,6 +155,10 @@ module memory_bus_adapter (
             core_dmem_rdata = mtime_counter[31:0];
         end else if (is_mtime_high) begin
             core_dmem_rdata = mtime_counter[63:32];
+        end else if (is_mtimecmp) begin
+            core_dmem_rdata = mtimecmp_reg;
+        end else if (is_irq_inject) begin
+            core_dmem_rdata = {31'd0, irq_inject_reg};
         end else if (is_sim_ctrl) begin
             core_dmem_rdata = CORE_SIGNATURE;
         end else if (is_wb_access) begin

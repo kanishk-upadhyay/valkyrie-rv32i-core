@@ -26,6 +26,10 @@ module rv32i_core #(
     input  wire [31:0] dmem_rdata,
     output wire        dmem_req,
 
+    // Hardware Interrupt Lines
+    input  wire        irq_external,
+    input  wire        irq_timer,
+
     // Diagnostics / Simulation Tracking
     output wire [31:0] retired_pc,
     output wire        trap_ecall,
@@ -43,23 +47,76 @@ module rv32i_core #(
     wire        branch_taken_ex;
     wire [31:0] branch_target_ex;
 
+    // Forward declarations of pipeline registers used in trap controller
+    reg  [31:0] pc_if_id;
+    reg  [31:0] pc_plus4_if_id;
+    reg  [31:0] inst_if_id;
+
+    reg  [31:0] pc_id_ex;
+    reg         is_ecall_id_ex;
+    reg         is_mret_id_ex;
+
+    wire [31:0] pc_if;
+    wire [31:0] pc_plus4_if;
+
+    wire        branch_taken_to_if;
+    wire [31:0] branch_target_to_if;
+
     wire [1:0]  forward_a;
     wire [1:0]  forward_b;
+
+    // CSR & Interrupt Controller Wires
+    wire        is_csr_id;
+    wire        is_mret_id;
+    wire [11:0] csr_addr_id;
+    wire [2:0]  csr_op_id;
+    wire [4:0]  csr_rs1_id;
+    wire [4:0]  csr_zimm_id;
+
+    reg         is_csr_id_ex;
+    reg  [11:0] csr_addr_id_ex;
+    reg  [2:0]  csr_op_id_ex;
+    reg  [4:0]  csr_rs1_id_ex;
+
+    wire [11:0] csr_addr_ex_out;
+    wire [2:0]  csr_op_ex_out;
+    wire [31:0] csr_wdata_ex_out;
+    wire        csr_we_ex_out;
+    wire [31:0] csr_rdata_from_unit;
+
+    wire [31:0] trap_vector;
+    wire [31:0] mepc_out;
+    wire        irq_pending;
+    wire [31:0] irq_cause;
+
+    // Trap generation logic
+    wire        trap_enter_ecall = is_ecall_id_ex;
+    wire [31:0] trap_pc_ecall    = pc_id_ex;
+    wire [31:0] trap_cause_ecall = {1'b0, 31'd11};
+
+    wire        trap_enter_irq   = irq_pending && !is_ecall_id_ex && !is_mret_id_ex && !branch_taken_ex;
+    wire [31:0] trap_pc_irq      = (pc_if_id != 32'd0) ? pc_if_id : pc_if;
+    wire [31:0] trap_cause_irq   = irq_cause;
+
+    wire        trap_enter       = trap_enter_ecall | trap_enter_irq;
+    wire [31:0] trap_pc_sel      = trap_enter_ecall ? trap_pc_ecall : trap_pc_irq;
+    wire [31:0] trap_cause_sel   = trap_enter_ecall ? trap_cause_ecall : trap_cause_irq;
+    wire        trap_exit        = is_mret_id_ex;
+
+    assign branch_taken_to_if  = trap_enter | branch_taken_ex;
+    assign branch_target_to_if = trap_enter ? trap_vector : branch_target_ex;
 
     // ========================================================================
     // 1. IF Stage (Instruction Fetch)
     // ========================================================================
-    wire [31:0] pc_if;
-    wire [31:0] pc_plus4_if;
-
     if_stage #(
         .RESET_VECTOR (RESET_VECTOR)
     ) u_if_stage (
         .clk           (clk),
         .rst_n         (rst_n),
         .stall_pc      (stall_pc),
-        .branch_taken  (branch_taken_ex),
-        .branch_target (branch_target_ex),
+        .branch_taken  (branch_taken_to_if),
+        .branch_target (branch_target_to_if),
         .pc_out        (pc_if),
         .pc_plus4_out  (pc_plus4_if)
     );
@@ -70,10 +127,6 @@ module rv32i_core #(
     // ------------------------------------------------------------------------
     // IF/ID Pipeline Register
     // ------------------------------------------------------------------------
-    reg [31:0] pc_if_id;
-    reg [31:0] pc_plus4_if_id;
-    reg [31:0] inst_if_id;
-
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             pc_if_id       <= 32'd0;
@@ -159,13 +212,18 @@ module rv32i_core #(
         .uses_rs1     (uses_rs1_id),
         .uses_rs2     (uses_rs2_id),
         .is_ecall     (is_ecall_id),
-        .is_ebreak    (is_ebreak_id)
+        .is_ebreak    (is_ebreak_id),
+        .is_csr       (is_csr_id),
+        .is_mret      (is_mret_id),
+        .csr_addr     (csr_addr_id),
+        .csr_op       (csr_op_id),
+        .csr_rs1      (csr_rs1_id),
+        .csr_zimm     (csr_zimm_id)
     );
 
     // ------------------------------------------------------------------------
     // ID/EX Pipeline Register
     // ------------------------------------------------------------------------
-    reg [31:0] pc_id_ex;
     reg [31:0] pc_plus4_id_ex;
     reg [31:0] reg_rdata1_id_ex;
     reg [31:0] reg_rdata2_id_ex;
@@ -185,7 +243,6 @@ module rv32i_core #(
     reg        is_branch_id_ex;
     reg        is_jal_id_ex;
     reg        is_jalr_id_ex;
-    reg        is_ecall_id_ex;
     reg        is_ebreak_id_ex;
 
     always @(posedge clk or negedge rst_n) begin
@@ -212,6 +269,11 @@ module rv32i_core #(
             is_jalr_id_ex    <= 1'b0;
             is_ecall_id_ex   <= 1'b0;
             is_ebreak_id_ex  <= 1'b0;
+            is_csr_id_ex     <= 1'b0;
+            is_mret_id_ex    <= 1'b0;
+            csr_addr_id_ex   <= 12'd0;
+            csr_op_id_ex     <= 3'd0;
+            csr_rs1_id_ex    <= 5'd0;
         end else if (flush_id_ex) begin
             pc_id_ex         <= 32'd0;
             pc_plus4_id_ex   <= 32'd0;
@@ -235,6 +297,11 @@ module rv32i_core #(
             is_jalr_id_ex    <= 1'b0;
             is_ecall_id_ex   <= 1'b0;
             is_ebreak_id_ex  <= 1'b0;
+            is_csr_id_ex     <= 1'b0;
+            is_mret_id_ex    <= 1'b0;
+            csr_addr_id_ex   <= 12'd0;
+            csr_op_id_ex     <= 3'd0;
+            csr_rs1_id_ex    <= 5'd0;
         end else begin
             pc_id_ex         <= pc_id;
             pc_plus4_id_ex   <= pc_plus4_id;
@@ -247,7 +314,7 @@ module rv32i_core #(
             funct3_id_ex     <= funct3_id;
 
             alu_op_id_ex     <= alu_op_id;
-            alu_src_a_id_ex  <= alu_src_a_id;
+            alu_src_a_id_ex  <= 1'b0;
             alu_src_b_id_ex  <= alu_src_b_id;
             mem_read_id_ex   <= mem_read_id;
             mem_write_id_ex  <= mem_write_id;
@@ -258,6 +325,11 @@ module rv32i_core #(
             is_jalr_id_ex    <= is_jalr_id;
             is_ecall_id_ex   <= is_ecall_id;
             is_ebreak_id_ex  <= is_ebreak_id;
+            is_csr_id_ex     <= is_csr_id;
+            is_mret_id_ex    <= is_mret_id;
+            csr_addr_id_ex   <= csr_addr_id;
+            csr_op_id_ex     <= csr_op_id;
+            csr_rs1_id_ex    <= csr_rs1_id;
         end
     end
 
@@ -295,6 +367,13 @@ module rv32i_core #(
         .is_branch_ex  (is_branch_id_ex),
         .is_jal_ex     (is_jal_id_ex),
         .is_jalr_ex    (is_jalr_id_ex),
+        .is_csr_ex     (is_csr_id_ex),
+        .is_mret_ex    (is_mret_id_ex),
+        .csr_addr_ex   (csr_addr_id_ex),
+        .csr_op_ex     (csr_op_id_ex),
+        .csr_rs1_ex    (csr_rs1_id_ex),
+        .csr_rdata_in  (csr_rdata_from_unit),
+        .mepc_in       (mepc_out),
 
         .forward_a     (forward_a),
         .forward_b     (forward_b),
@@ -310,8 +389,36 @@ module rv32i_core #(
         .reg_write_out (reg_write_ex_out),
         .wb_src_out    (wb_src_ex_out),
 
+        .csr_addr_out  (csr_addr_ex_out),
+        .csr_op_out    (csr_op_ex_out),
+        .csr_wdata_out (csr_wdata_ex_out),
+        .csr_we_out    (csr_we_ex_out),
+
         .branch_taken  (branch_taken_ex),
         .branch_target (branch_target_ex)
+    );
+
+    // ========================================================================
+    // Machine-Mode CSR Unit & Interrupt Controller
+    // ========================================================================
+    csr_unit u_csr_unit (
+        .clk          (clk),
+        .rst_n        (rst_n),
+        .csr_addr     (csr_addr_ex_out),
+        .csr_op       (csr_op_ex_out),
+        .csr_wdata    (csr_wdata_ex_out),
+        .csr_we       (csr_we_ex_out),
+        .csr_rdata    (csr_rdata_from_unit),
+        .trap_enter   (trap_enter),
+        .trap_pc      (trap_pc_sel),
+        .trap_cause   (trap_cause_sel),
+        .trap_exit    (trap_exit),
+        .trap_vector  (trap_vector),
+        .mepc_out     (mepc_out),
+        .irq_external (irq_external),
+        .irq_timer    (irq_timer),
+        .irq_pending  (irq_pending),
+        .irq_cause    (irq_cause)
     );
 
     // ------------------------------------------------------------------------
@@ -451,7 +558,7 @@ module rv32i_core #(
         .uses_rs2_id     (uses_rs2_id),
         .rd_ex           (rd_id_ex),
         .mem_read_ex     (mem_read_id_ex),
-        .branch_taken_ex (branch_taken_ex),
+        .branch_taken_ex (branch_taken_to_if),
         .stall_pc        (stall_pc),
         .stall_if_id     (stall_if_id),
         .flush_if_id     (flush_if_id),

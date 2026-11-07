@@ -33,6 +33,11 @@ module tb_core;
     wire        trap_ecall;
     wire        trap_ebreak;
 
+    // Interrupt Lines
+    wire        irq_external;
+    wire        irq_timer;
+    reg         ext_irq_pin;
+
     // SRAM Bus Wires
     wire [31:0] sram_iaddr;
     wire [31:0] sram_irdata;
@@ -108,12 +113,14 @@ module tb_core;
         .dmem_addr   (dmem_addr),
         .dmem_wdata  (dmem_wdata),
         .dmem_wen    (dmem_wen),
-        .dmem_wmask  (dmem_wmask),
-        .dmem_rdata  (dmem_rdata),
-        .dmem_req    (dmem_req),
-        .retired_pc  (retired_pc),
-        .trap_ecall  (trap_ecall),
-        .trap_ebreak (trap_ebreak)
+        .dmem_wmask   (dmem_wmask),
+        .dmem_rdata   (dmem_rdata),
+        .dmem_req     (dmem_req),
+        .irq_external (irq_external),
+        .irq_timer    (irq_timer),
+        .retired_pc   (retired_pc),
+        .trap_ecall   (trap_ecall),
+        .trap_ebreak  (trap_ebreak)
     );
 
     memory_bus_adapter u_bus_adapter (
@@ -146,7 +153,10 @@ module tb_core;
         .uart_tx_valid   (uart_tx_valid),
         .uart_tx_data    (uart_tx_data),
         .sim_halt        (sim_halt),
-        .sim_status      (sim_status)
+        .sim_status      (sim_status),
+        .ext_irq_pin     (ext_irq_pin),
+        .irq_external    (irq_external),
+        .irq_timer       (irq_timer)
     );
 
     // ------------------------------------------------------------------------
@@ -182,9 +192,10 @@ module tb_core;
     // ------------------------------------------------------------------------
     initial begin
         // Default Configuration
-        max_cycles = 100000;
-        hex_file   = "";
-        vcd_file   = "";
+        max_cycles  = 100000;
+        hex_file    = "";
+        vcd_file    = "";
+        ext_irq_pin = 0;
 
         // Parse command line plusargs
         if ($value$plusargs("HEX=%s", hex_file)) begin

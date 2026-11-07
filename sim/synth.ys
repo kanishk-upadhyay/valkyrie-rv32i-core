@@ -1,0 +1,35 @@
+# =============================================================================
+# Yosys Open-Source Synthesis Script for Valkyrie-RV32I Core
+# Project: Valkyrie-RV32I Core
+# Organization: DG Signals / Indian Army Internship Programme (AICTE)
+# Target: Generic Standard Cell / Silicon Synthesis Analysis
+# =============================================================================
+
+# 1. Read SystemVerilog RTL source files
+read_verilog -sv ../rtl/units/alu.v
+read_verilog -sv ../rtl/units/branch_unit.v
+read_verilog -sv ../rtl/units/csr_unit.v
+read_verilog -sv ../rtl/units/forwarding_unit.v
+read_verilog -sv ../rtl/units/hazard_unit.v
+read_verilog -sv ../rtl/units/regfile.v
+read_verilog -sv ../rtl/core/if_stage.v
+read_verilog -sv ../rtl/core/id_stage.v
+read_verilog -sv ../rtl/core/ex_stage.v
+read_verilog -sv ../rtl/core/mem_stage.v
+read_verilog -sv ../rtl/core/wb_stage.v
+read_verilog -sv ../rtl/core/rv32i_core.v
+
+# 2. Check design hierarchy
+hierarchy -check -top rv32i_core
+
+# 3. Perform full logic synthesis & optimization
+synth -top rv32i_core
+
+# 4. Flatten hierarchy for full-core area and topological analysis
+flatten
+
+# 5. Technology mapping & statistics
+stat -tech cmos
+
+# 6. Critical Path & Topological Timing Analysis
+timeest -clk clk

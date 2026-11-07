@@ -21,24 +21,32 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install Hardware Simulation Toolchain (Icarus Verilog)
+      - name: Install Hardware Toolchain (Icarus Verilog & Yosys)
         run: |
           sudo apt-get update
-          sudo apt-get install -y iverilog
+          sudo apt-get install -y iverilog yosys
 
       - name: Display Toolchain Versions
         run: |
           iverilog -V | head -n 2
+          yosys -V
           python3 --version
 
-      - name: Run Valkyrie-RV32I Regression Suite
+      - name: Run Valkyrie-RV32I Regression Suite (13 Test Suites)
         run: |
           python3 tb/sim_runner.py --vcd
 
-      - name: Upload Waveform Artifacts
+      - name: Run Open-Source Silicon Synthesis & PPA Benchmark
+        run: |
+          cd sim
+          make synth
+
+      - name: Upload Waveform & Synthesis Artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: valkyrie-simulation-waveforms
-          path: sim/*.vcd
+          name: valkyrie-artifacts
+          path: |
+            sim/*.vcd
+            sim/synth.log
           retention-days: 7

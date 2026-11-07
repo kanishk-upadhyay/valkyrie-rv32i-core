@@ -45,7 +45,13 @@ module id_stage (
     output reg         uses_rs1,
     output reg         uses_rs2,
     output wire        is_ecall,
-    output wire        is_ebreak
+    output wire        is_ebreak,
+    output reg         is_csr,
+    output reg         is_mret,
+    output wire [11:0] csr_addr,
+    output wire [2:0]  csr_op,
+    output wire [4:0]  csr_rs1,
+    output wire [4:0]  csr_zimm
 );
 
     // ALU Operation Codes
@@ -82,6 +88,11 @@ module id_stage (
     assign rs2_addr   = inst_in[24:20];
     assign funct7     = inst_in[31:25];
 
+    assign csr_addr   = inst_in[31:20];
+    assign csr_op     = inst_in[14:12];
+    assign csr_rs1    = inst_in[19:15];
+    assign csr_zimm   = inst_in[19:15];
+
     assign pc_out       = pc_in;
     assign pc_plus4_out = pc_plus4_in;
 
@@ -103,6 +114,7 @@ module id_stage (
             OPC_LUI,
             OPC_AUIPC:  imm_selected = imm_u;
             OPC_JAL:    imm_selected = imm_j;
+            OPC_SYSTEM: imm_selected = {27'd0, inst_in[19:15]};
             default:    imm_selected = 32'd0;
         endcase
     end
@@ -127,6 +139,8 @@ module id_stage (
         is_jalr   = 1'b0;
         uses_rs1  = 1'b0;
         uses_rs2  = 1'b0;
+        is_csr    = 1'b0;
+        is_mret   = 1'b0;
 
         case (opcode)
             OPC_R_TYPE: begin
@@ -226,7 +240,20 @@ module id_stage (
                 wb_src    = 2'b00; // ALU result
             end
 
-            OPC_SYSTEM,
+            OPC_SYSTEM: begin
+                if (funct3 != 3'b000) begin
+                    // CSR Instructions: CSRRW, CSRRS, CSRRC, CSRRWI, CSRRSI, CSRRCI
+                    is_csr    = 1'b1;
+                    reg_write = 1'b1;
+                    wb_src    = 2'b00; // From EX stage (CSR rdata)
+                    uses_rs1  = !funct3[2]; // Register variants use RS1
+                    uses_rs2  = 1'b0;
+                end else if (inst_in[31:20] == 12'h302) begin
+                    // MRET: Return from machine trap
+                    is_mret   = 1'b1;
+                end
+            end
+
             OPC_FENCE: begin
                 // Safe NOP execution in-pipeline
             end

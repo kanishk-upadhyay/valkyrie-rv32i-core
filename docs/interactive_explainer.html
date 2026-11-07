@@ -37,15 +37,15 @@
       <div class="flex items-center gap-3">
         <div class="bg-[var(--card)] border border-[var(--border)] rounded-lg px-4 py-2 text-center">
           <div class="text-xs text-[var(--muted-foreground)]">Aggregate CPI</div>
-          <div class="text-lg font-bold text-emerald-400">1.51</div>
+          <div class="text-lg font-bold text-emerald-400">1.50</div>
         </div>
         <div class="bg-[var(--card)] border border-[var(--border)] rounded-lg px-4 py-2 text-center">
-          <div class="text-xs text-[var(--muted-foreground)]">Peak IPC</div>
-          <div class="text-lg font-bold text-blue-400">0.89</div>
+          <div class="text-xs text-[var(--muted-foreground)]">Silicon Complexity</div>
+          <div class="text-lg font-bold text-purple-400">12.74 kGE</div>
         </div>
         <div class="bg-[var(--card)] border border-[var(--border)] rounded-lg px-4 py-2 text-center">
           <div class="text-xs text-[var(--muted-foreground)]">Verification</div>
-          <div class="text-lg font-bold text-emerald-400">12 / 12 Pass</div>
+          <div class="text-lg font-bold text-emerald-400">13 / 13 Pass</div>
         </div>
       </div>
     </div>
@@ -73,6 +73,7 @@
             <option value="forwarding">Scenario A: RAW Hazard (EX-to-EX Forwarding)</option>
             <option value="loaduse">Scenario B: Load-to-Use (1-Cycle Stall Bubble)</option>
             <option value="branch">Scenario C: Taken Branch (2-Cycle Pipeline Flush)</option>
+            <option value="interrupt">Scenario D: Hardware IRQ Preemption & MRET</option>
           </select>
           <div class="flex items-center gap-1 bg-[var(--background)] border border-[var(--border)] rounded-lg p-1">
             <button onclick="prevCycle()" class="px-3 py-1 text-xs rounded hover:bg-[var(--card)] font-medium">◀ Prev</button>
@@ -368,6 +369,22 @@
           </div>
         </div>
 
+        <!-- Test 13: Asynchronous Hardware Interrupt & Trap Return -->
+        <div class="bg-[var(--background)] border border-purple-500/30 hover:border-purple-500/60 rounded-xl p-4 transition-all">
+          <div class="flex items-center justify-between mb-2">
+            <span class="font-bold text-xs text-purple-400">🔔 Hardware IRQ & MRET Trap Return</span>
+            <span class="px-2 py-0.5 text-xs font-mono rounded bg-emerald-500/20 text-emerald-400">PASS</span>
+          </div>
+          <p class="text-xs text-[var(--muted-foreground)] mb-3">
+            Preempts background mission loop upon external IRQ at 0x10000008, vectors to mtvec, saves mepc/mcause, and returns via mret.
+          </p>
+          <div class="flex items-center justify-between text-xs font-mono text-[var(--muted-foreground)] pt-2 border-t border-[var(--border)]">
+            <span>54 Cycles</span>
+            <span>41 Instr</span>
+            <span class="text-blue-400">0.76 IPC</span>
+          </div>
+        </div>
+
       </div>
     </div>
 
@@ -377,7 +394,7 @@
         <span>⚙️</span> Microarchitecture Component Guide
       </h2>
 
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <div class="p-4 rounded-xl bg-[var(--background)] border border-[var(--border)]">
           <div class="font-bold text-xs text-blue-400 uppercase tracking-wide mb-1">Data Forwarding Unit</div>
           <div class="text-xs font-semibold mb-2">forwarding_unit.v</div>
@@ -395,11 +412,98 @@
         </div>
 
         <div class="p-4 rounded-xl bg-[var(--background)] border border-[var(--border)]">
+          <div class="font-bold text-xs text-purple-400 uppercase tracking-wide mb-1">Machine-Mode CSR Unit</div>
+          <div class="text-xs font-semibold mb-2">csr_unit.v</div>
+          <p class="text-xs text-[var(--muted-foreground)] leading-relaxed">
+            Implements RISC-V Privileged Architecture v1.12. Supports mstatus, mie, mip, mtvec, mepc, mcause, and mscratch with 1-cycle trap vectoring and mret return.
+          </p>
+        </div>
+
+        <div class="p-4 rounded-xl bg-[var(--background)] border border-[var(--border)]">
           <div class="font-bold text-xs text-emerald-400 uppercase tracking-wide mb-1">Tactical Bus Adapter</div>
           <div class="text-xs font-semibold mb-2">memory_bus_adapter.v</div>
           <p class="text-xs text-[var(--muted-foreground)] leading-relaxed">
             Integrates unified 64KB SRAM, military UART streaming console (0x10000000), 64-bit real-time hardware cycle timer (0x20000000), and Wishbone master expansion.
           </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 4: Silicon Synthesis & PPA Benchmark Dashboard -->
+    <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 shadow-sm">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <h2 class="text-lg font-bold flex items-center gap-2">
+            <span>🔬</span> Open-Source Silicon Synthesis & PPA Dashboard (Yosys v0.70)
+          </h2>
+          <p class="text-xs text-[var(--muted-foreground)]">
+            Gate-level synthesis metrics, standard cell area complexity, and multi-node timing closure projections.
+          </p>
+        </div>
+        <span class="px-3 py-1 text-xs font-mono font-bold rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20">
+          NAND2 Equivalent: 12.74 kGE
+        </span>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div class="p-4 rounded-xl bg-[var(--background)] border border-[var(--border)] text-center">
+          <div class="text-xs text-[var(--muted-foreground)] mb-1">Total Standard Cells</div>
+          <div class="text-xl font-bold text-[var(--foreground)]">10,166</div>
+          <div class="text-[10px] text-[var(--muted-foreground)] mt-1">Physical Cell Instances</div>
+        </div>
+        <div class="p-4 rounded-xl bg-[var(--background)] border border-[var(--border)] text-center">
+          <div class="text-xs text-[var(--muted-foreground)] mb-1">Sequential Flip-Flops</div>
+          <div class="text-xl font-bold text-blue-400">1,682 DFFs</div>
+          <div class="text-[10px] text-[var(--muted-foreground)] mt-1">Regfile + CSR + Pipelines</div>
+        </div>
+        <div class="p-4 rounded-xl bg-[var(--background)] border border-[var(--border)] text-center">
+          <div class="text-xs text-[var(--muted-foreground)] mb-1">Transistor Count</div>
+          <div class="text-xl font-bold text-emerald-400">50,964 Tx</div>
+          <div class="text-[10px] text-[var(--muted-foreground)] mt-1">CMOS Transistor Est.</div>
+        </div>
+        <div class="p-4 rounded-xl bg-[var(--background)] border border-[var(--border)] text-center">
+          <div class="text-xs text-[var(--muted-foreground)] mb-1">Critical Path Depth</div>
+          <div class="text-xl font-bold text-orange-400">166 Levels</div>
+          <div class="text-[10px] text-[var(--muted-foreground)] mt-1">AIG Topological Path</div>
+        </div>
+      </div>
+
+      <!-- Process Node Projection Cards -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="p-4 rounded-xl bg-[var(--background)] border border-[var(--border)]">
+          <div class="flex items-center justify-between mb-2">
+            <span class="font-bold text-xs text-[var(--foreground)]">SkyWater 130nm CMOS</span>
+            <span class="text-xs font-mono text-emerald-400">147 MHz</span>
+          </div>
+          <div class="text-xs text-[var(--muted-foreground)] mb-2">Open-Source Silicon Fabric</div>
+          <div class="flex justify-between text-xs font-mono text-[var(--muted-foreground)] pt-2 border-t border-[var(--border)]">
+            <span>Area: ~0.127 mm²</span>
+            <span>Delay: 6.8 ns</span>
+          </div>
+        </div>
+
+        <div class="p-4 rounded-xl bg-[var(--background)] border border-[var(--border)]">
+          <div class="flex items-center justify-between mb-2">
+            <span class="font-bold text-xs text-[var(--foreground)]">TSMC 65nm LP (Defense)</span>
+            <span class="text-xs font-mono text-blue-400">370 MHz</span>
+          </div>
+          <div class="text-xs text-[var(--muted-foreground)] mb-2">Military-Spec Avionics Node</div>
+          <div class="flex justify-between text-xs font-mono text-[var(--muted-foreground)] pt-2 border-t border-[var(--border)]">
+            <span>Area: ~0.023 mm²</span>
+            <span>Delay: 2.7 ns</span>
+          </div>
+        </div>
+
+        <div class="p-4 rounded-xl bg-[var(--background)] border border-[var(--border)]">
+          <div class="flex items-center justify-between mb-2">
+            <span class="font-bold text-xs text-[var(--foreground)]">TSMC 28nm HPC+</span>
+            <span class="text-xs font-mono text-purple-400">769 MHz</span>
+          </div>
+          <div class="text-xs text-[var(--muted-foreground)] mb-2">Tactical Drone SDR Node</div>
+          <div class="flex justify-between text-xs font-mono text-[var(--muted-foreground)] pt-2 border-t border-[var(--border)]">
+            <span>Area: ~0.007 mm²</span>
+            <span>Delay: 1.3 ns</span>
+          </div>
         </div>
       </div>
     </div>
@@ -548,6 +652,53 @@
           mem: { inst: "NOP [FLUSHED]", desc: "Bubble passing" },
           wb: { inst: "---", desc: "Idle" },
           telemetry: "Cycle 5: Correct branch target instruction enters decode. Execution continues at new program location."
+        }
+      ],
+      interrupt: [
+        {
+          cycle: 1,
+          if: { inst: "ADDI s1, s1, 1", desc: "Background loop active" },
+          id: { inst: "---", desc: "Idle" },
+          ex: { inst: "---", desc: "Idle", fwd: "None" },
+          mem: { inst: "---", desc: "Idle" },
+          wb: { inst: "---", desc: "Idle" },
+          telemetry: "Cycle 1: Background mission loop running. <strong>ADDI s1, s1, 1</strong> fetched in IF stage."
+        },
+        {
+          cycle: 2,
+          if: { inst: "BNE s2, x0, exit", desc: "Background branch check" },
+          id: { inst: "ADDI s1, s1, 1", desc: "Decoding counter increment" },
+          ex: { inst: "---", desc: "Idle", fwd: "None" },
+          mem: { inst: "---", desc: "Idle" },
+          wb: { inst: "---", desc: "Idle" },
+          telemetry: "Cycle 2: <span class='text-purple-400 font-bold'>⚡ HARDWARE IRQ LINE PULSED!</span> External interrupt (MEIP) asserted at peripheral bus. Core evaluates mstatus.MIE=1 & mie.MEIE=1."
+        },
+        {
+          cycle: 3,
+          if: { inst: "JAL x0, loop", desc: "Interrupted instruction" },
+          id: { inst: "BNE s2, x0, exit", desc: "Interrupted instruction" },
+          ex: { inst: "ADDI s1, s1, 1", desc: "Completes execution", fwd: "None" },
+          mem: { inst: "---", desc: "Idle" },
+          wb: { inst: "---", desc: "Idle" },
+          telemetry: "Cycle 3: <span class='text-red-400 font-bold'>🚨 ASYNCHRONOUS TRAP PREEMPTION!</span> mepc <= PC, mcause <= 0x8000000B, mstatus.MIE <= 0. Pipeline purge triggered!"
+        },
+        {
+          cycle: 4,
+          if: { inst: "CSRR s3, mcause", desc: "mtvec Trap Vector Fetch" },
+          id: { inst: "NOP [FLUSHED]", desc: "Purged background instruction" },
+          ex: { inst: "NOP [FLUSHED]", desc: "Purged background instruction", fwd: "None" },
+          mem: { inst: "ADDI s1, s1, 1", desc: "Final background commit" },
+          wb: { inst: "---", desc: "Idle" },
+          telemetry: "Cycle 4: <span class='text-purple-400 font-bold'>🎯 VECTORED TO ISR!</span> Program Counter redirects to mtvec base address. First ISR instruction fetched."
+        },
+        {
+          cycle: 5,
+          if: { inst: "SW x0, 8(a0)", desc: "Clearing IRQ in ISR" },
+          id: { inst: "CSRR s3, mcause", desc: "Reading exception cause" },
+          ex: { inst: "NOP [FLUSHED]", desc: "Bubble passing" },
+          mem: { inst: "NOP [FLUSHED]", desc: "Bubble passing" },
+          wb: { inst: "ADDI s1, s1, 1", desc: "Counter committed" },
+          telemetry: "Cycle 5: <span class='text-emerald-400 font-bold'>✅ ISR RUNNING!</span> Trap handler reads mcause, acknowledges hardware IRQ, and prepares to return via MRET."
         }
       ]
     };

@@ -27,6 +27,13 @@ module ex_stage (
     input  wire        is_branch_ex,
     input  wire        is_jal_ex,
     input  wire        is_jalr_ex,
+    input  wire        is_csr_ex,
+    input  wire        is_mret_ex,
+    input  wire [11:0] csr_addr_ex,
+    input  wire [2:0]  csr_op_ex,
+    input  wire [4:0]  csr_rs1_ex,
+    input  wire [31:0] csr_rdata_in,
+    input  wire [31:0] mepc_in,
 
     // Forwarding inputs
     input  wire [1:0]  forward_a,
@@ -43,6 +50,12 @@ module ex_stage (
     output wire        mem_write_out,
     output wire        reg_write_out,
     output wire [1:0]  wb_src_out,
+
+    // Outputs to CSR Unit
+    output wire [11:0] csr_addr_out,
+    output wire [2:0]  csr_op_out,
+    output wire [31:0] csr_wdata_out,
+    output wire        csr_we_out,
 
     // Branch feedback to IF stage & Hazard Unit
     output wire        branch_taken,
@@ -86,6 +99,7 @@ module ex_stage (
     );
 
     // Instantiate Branch Unit
+    wire branch_cond_taken;
     branch_unit u_branch_unit (
         .branch_op    (funct3_ex),
         .is_branch    (is_branch_ex),
@@ -93,18 +107,31 @@ module ex_stage (
         .is_jalr      (is_jalr_ex),
         .op_a         (forwarded_a),
         .op_b         (forwarded_b),
-        .branch_taken (branch_taken)
+        .branch_taken (branch_cond_taken)
     );
 
-    // Branch / Jump Target Address Computation
+    // Branch / Jump / MRET target computation
+    // MRET: mepc
     // JALR: (rs1 + imm) & ~1
     // JAL / Branch: pc + imm
-    assign branch_target = is_jalr_ex ? ((forwarded_a + imm_ex) & ~32'h0000_0001) :
+    assign branch_taken  = is_mret_ex | branch_cond_taken;
+    assign branch_target = is_mret_ex ? mepc_in :
+                           is_jalr_ex ? ((forwarded_a + imm_ex) & ~32'h0000_0001) :
                                         (pc_ex + imm_ex);
 
     // Write-back result selection for EX stage:
-    // For JAL/JALR, return address PC+4 is saved; otherwise ALU result
-    assign ex_result     = (wb_src_ex == 2'b10) ? pc_plus4_ex : alu_out;
+    // CSR instruction: old CSR read data
+    // JAL/JALR: return address PC+4
+    // Otherwise: ALU result
+    assign ex_result     = is_csr_ex ? csr_rdata_in :
+                           (wb_src_ex == 2'b10) ? pc_plus4_ex : alu_out;
+
+    // CSR write interface
+    assign csr_addr_out  = csr_addr_ex;
+    assign csr_op_out    = csr_op_ex;
+    assign csr_wdata_out = csr_op_ex[2] ? {27'd0, imm_ex[4:0]} : forwarded_a;
+    assign csr_we_out    = is_csr_ex && ((csr_op_ex[1:0] == 2'b01) || (csr_rs1_ex != 5'd0));
+
     assign mem_wdata_ex  = forwarded_b;
     assign rd_out        = rd_ex;
     assign funct3_out    = funct3_ex;

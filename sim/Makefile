@@ -8,6 +8,8 @@ IVAR     = iverilog
 VVP      = vvp
 PYTHON   = python3
 
+YOSYS    = yosys
+
 ROOT_DIR = ..
 RTL_DIR  = $(ROOT_DIR)/rtl
 TB_DIR   = $(ROOT_DIR)/tb
@@ -21,8 +23,10 @@ TB_SRCS  = $(TB_DIR)/tb_core.v
 
 TARGET   = sim_core
 VCD_FILE = valkyrie_sim.vcd
+SYNTH_SCRIPT = synth.ys
+SYNTH_LOG    = synth.log
 
-.PHONY: all compile test test-all waves clean help
+.PHONY: all compile test test-all waves synth clean help
 
 all: test-all
 
@@ -50,16 +54,22 @@ waves: compile
 	$(VVP) $(TARGET) +HEX=$(TESTS_DIR)/test_full_suite.hex +VCD=$(VCD_FILE)
 	@bash view_waves.sh $(VCD_FILE)
 
+synth:
+	@echo "==> Synthesizing Valkyrie-RV32I Core with $(YOSYS)..."
+	$(YOSYS) -s $(SYNTH_SCRIPT) -l $(SYNTH_LOG)
+	@$(PYTHON) synth_report.py $(SYNTH_LOG)
+
 clean:
-	@echo "==> Cleaning simulation artifacts..."
-	rm -f $(TARGET) *.vcd *.vvp
+	@echo "==> Cleaning simulation and synthesis artifacts..."
+	rm -f $(TARGET) *.vcd *.vvp $(SYNTH_LOG)
 	@echo "==> Clean complete."
 
 help:
 	@echo "Valkyrie-RV32I Makefile targets:"
 	@echo "  make compile    - Compile RTL and testbench into $(TARGET)"
-	@echo "  make test-all   - Run complete automated regression test suite"
+	@echo "  make test-all   - Run complete automated regression test suite (13 suites)"
 	@echo "  make test       - Run default integration test"
-	@echo "  make test-<name>- Run specific test (e.g., make test-test_arithmetic)"
-	@echo "  make waves      - Generate and launch waveform viewer (GTKWave)"
-	@echo "  make clean      - Remove build binaries and VCD waveforms"
+	@echo "  make test-<name>- Run specific test (e.g., make test-test_interrupt_trap)"
+	@echo "  make waves      - Generate and launch waveform viewer (Surfer)"
+	@echo "  make synth      - Run Yosys RTL synthesis and generate PPA report"
+	@echo "  make clean      - Remove build binaries, VCD waveforms, and synthesis logs"
