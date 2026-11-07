@@ -1,0 +1,44 @@
+name: Valkyrie-RV32I Core CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  regression-tests:
+    name: RTL Simulation & Verification
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Hardware Simulation Toolchain (Icarus Verilog)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y iverilog
+
+      - name: Display Toolchain Versions
+        run: |
+          iverilog -V | head -n 2
+          python3 --version
+
+      - name: Run Valkyrie-RV32I Regression Suite
+        run: |
+          python3 tb/sim_runner.py --vcd
+
+      - name: Upload Waveform Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: valkyrie-simulation-waveforms
+          path: sim/*.vcd
+          retention-days: 7
