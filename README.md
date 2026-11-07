@@ -3,7 +3,7 @@
 # 🛡️ Valkyrie-RV32I Core
 ### Industry-Grade 5-Stage Pipelined RV32I RISC-V Processor Core in Verilog
 
-[![CI Status](https://github.com/kanishk-upadhyay/valkyrie-rv32i-core/actions/workflows/ci.yml/badge.svg)](https://github.com/kanishk-upadhyay/valkyrie-rv32i-core)
+[![CI Status](https://github.com/kanishk-upadhyay/valkyrie-rv32i-core/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/kanishk-upadhyay/valkyrie-rv32i-core/actions/workflows/ci.yml)
 [![ISA](https://img.shields.io/badge/ISA-RISC--V%20RV32I%20Base%20Integer-blue.svg)](https://riscv.org/)
 [![Language](https://img.shields.io/badge/Language-Verilog%20(IEEE%201364--2001)-green.svg)](https://en.wikipedia.org/wiki/Verilog)
 [![Verification](https://img.shields.io/badge/Verification-100%25%20Passing%20(13%2F13)-brightgreen.svg)](tb/)
