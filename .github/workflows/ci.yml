@@ -32,7 +32,7 @@ jobs:
           yosys -V
           python3 --version
 
-      - name: Run Valkyrie-RV32I Regression Suite (13 Test Suites)
+      - name: Run Valkyrie-RV32I Regression Suite (20 Test Suites)
         run: |
           python3 tb/sim_runner.py --vcd
 
