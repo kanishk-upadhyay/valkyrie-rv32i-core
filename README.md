@@ -6,7 +6,7 @@
 [![CI Status](https://github.com/kanishk-upadhyay/valkyrie-rv32i-core/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/kanishk-upadhyay/valkyrie-rv32i-core/actions/workflows/ci.yml)
 [![ISA](https://img.shields.io/badge/ISA-RISC--V%20RV32I%20Base%20Integer-blue.svg)](https://riscv.org/)
 [![Language](https://img.shields.io/badge/Language-Verilog%20(IEEE%201364--2001)-green.svg)](https://en.wikipedia.org/wiki/Verilog)
-[![Verification](https://img.shields.io/badge/Verification-100%25%20Passing%20(13%2F13)-brightgreen.svg)](tb/)
+[![Verification](https://img.shields.io/badge/Verification-100%25%20Passing%20(20%2F20)-brightgreen.svg)](tb/)
 [![Synthesis](https://img.shields.io/badge/Synthesis-12.74%20kGE%20%7C%20Zero%20Latches-orange.svg)](sim/)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
@@ -155,7 +155,7 @@ The core includes an integrated Wishbone-compatible `memory_bus_adapter.v` with 
 
 ## 📊 Verification & Regression Results
 
-The core has undergone rigorous verification across **13 comprehensive test suites** (including military tactical edge computing algorithms, hardware interrupts, and traps) using Icarus Verilog (`iverilog`), `vvp`, and the automated Python regression runner (`sim_runner.py`):
+The core has undergone rigorous verification across **20 comprehensive test suites** (including military tactical edge computing algorithms, cryptography, hardware interrupts, stack recursion, and deep hazard stress) using Icarus Verilog (`iverilog`), `vvp`, and the automated Python regression runner (`sim_runner.py`):
 
 ```
 ==================================================================================
@@ -166,32 +166,40 @@ TEST CASE                  STATUS     CYCLES     INSTR      CPI      IPC
 ----------------------------------------------------------------------------------
 test_arithmetic.hex        PASS       45         40         1.12     0.89    
 test_branch.hex            PASS       35         16         2.19     0.46    
+test_call_stack_recursion.hex PASS       1027       690        1.49     0.67    
 test_crc32_radio.hex       PASS       30         23         1.30     0.77    
+test_crypto_primitives.hex PASS       47         42         1.12     0.89    
 test_drone_flight_pid.hex  PASS       23         18         1.28     0.78    
+test_ecall_ebreak.hex      PASS       8          3          2.67     0.38    
 test_forwarding.hex        PASS       29         24         1.21     0.83    
 test_full_suite.hex        PASS       61         51         1.20     0.84    
+test_hazard_stress.hex     PASS       49         35         1.40     0.71    
 test_interrupt_trap.hex    PASS       54         41         1.32     0.76    
 test_jump.hex              PASS       35         18         1.94     0.51    
 test_load_store.hex        PASS       41         33         1.24     0.80    
 test_load_use.hex          PASS       26         15         1.73     0.58    
 test_matrix_rotation.hex   PASS       30         24         1.25     0.80    
+test_subword_memory.hex    PASS       55         49         1.12     0.89    
 test_tactical_telemetry.hex PASS       37         27         1.37     0.73    
+test_timer_irq.hex         PASS       62         42         1.48     0.68    
 test_uart_timer.hex        PASS       224        118        1.90     0.53    
+test_upper_imm.hex         PASS       27         20         1.35     0.74    
 ----------------------------------------------------------------------------------
-AGGREGATE TOTALS                      670        448        1.50     0.67    
+AGGREGATE TOTALS                      1945       1329       1.46     0.68    
 ==================================================================================
 
->>> VERIFICATION COMPLETE: ALL 13 TEST SUITES PASSED WITH ZERO ERRORS <<<
+>>> VERIFICATION COMPLETE: ALL 20 TEST SUITES PASSED WITH ZERO ERRORS <<<
 ```
 
 ### Verification Highlights
-- **Full RV32I ISA Coverage:** 100% of arithmetic, bitwise shifts, upper immediates, loads/stores, jumps, and branches verified.
-- **Machine-Mode IRQ Preemption (`test_interrupt_trap`):** Verifies hardware interrupt injection, preemption of active background loops, trap vector redirection to `mtvec`, `mepc`/`mcause` context preservation, and clean pipeline resumption via `mret`.
-- **Autonomous Drone Flight PID (`test_drone_flight_pid`):** Real-time fixed-point quadcopter error correction and motor actuator loop executing at 0.78 IPC.
-- **SDR Tactical Packet Verification (`test_crc32_radio`):** Bitwise frame reduction and polynomial verification for secure communication packets.
-- **Avionics 3D Transformation (`test_matrix_rotation`):** Multi-dimensional coordinate vector multiplication for aircraft/missile inertial guidance.
-- **Electronic Warfare Peak Detection (`test_tactical_telemetry`):** In-place sorting and RF spectrum channel power peak scanner.
-- **Hardware Hazard Resolution:** Zero pipeline corruption across back-to-back RAW forwarding, load-use stall bubbles, and branch misprediction purges.
+- **Full RV32I ISA Coverage:** 100% of arithmetic, bitwise shifts, upper immediates (`LUI`/`AUIPC`), loads/stores, jumps (`JAL`/`JALR`), and branches verified.
+- **Sub-Word Memory & Alignment (`test_subword_memory`):** Exhaustive sign/zero extension across byte offsets 0–3 (`LB`, `LBU`, `LH`, `LHU`) and partial-word mask overwrites (`SB`, `SH`).
+- **Pipeline Hazard Stress (`test_hazard_stress`):** Back-to-back load-to-store bypass, load-use branch dependencies, simultaneous dual-stage EX/MEM and MEM/WB operand forwarding, and priority conflict resolution.
+- **Deep Call Stack & Recursion (`test_call_stack_recursion`):** Standard RISC-V ABI calling convention linkage, register spilling, and nested activation frames executing recursive Fibonacci over 1,027 cycles.
+- **Asynchronous Dual-Source Interrupts:** External hardware interrupt injection (`test_interrupt_trap`) and real-time 64-bit hardware timer preemption (`test_timer_irq`) via `mtime`/`mtimecmp` with deterministic atomic `mret` return.
+- **Synchronous Traps (`test_ecall_ebreak`):** Software-initiated machine-mode trap preemption and vectoring.
+- **Tactical Cryptography (`test_crypto_primitives`):** ChaCha20 ARX (Add-Rotate-XOR) quarter-round stream cipher kernel for military secure radio links.
+- **Avionics & Signal Processing Benchmarks:** Autonomous drone PID flight stabilization, SDR CRC32 frame checksum, 3D coordinate rotation, and RF channel power peak detection.
 
 ---
 

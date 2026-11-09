@@ -852,6 +852,450 @@ fail_loop:
     beq  x0, x0, fail_loop
 """
 
+# -----------------------------------------------------------------------------
+# Test 14: Sub-Word Memory Access & Alignment (LB, LBU, LH, LHU, SB, SH)
+# -----------------------------------------------------------------------------
+ASM_SUBWORD_MEMORY = """
+# Test 14: Sub-Word Memory Access & Alignment
+_start:
+    lui  s0, 0x00001
+    addi s0, s0, 0x000
+
+    # 1. Store Word, read individual bytes (Little Endian)
+    lui  t0, 0x12345
+    ori  t0, t0, 0x678
+    sw   t0, 0(s0)
+
+    lbu  t1, 0(s0)
+    addi t2, x0, 0x78
+    bne  t1, t2, fail
+
+    lbu  t1, 1(s0)
+    addi t2, x0, 0x56
+    bne  t1, t2, fail
+
+    lbu  t1, 2(s0)
+    addi t2, x0, 0x34
+    bne  t1, t2, fail
+
+    lbu  t1, 3(s0)
+    addi t2, x0, 0x12
+    bne  t1, t2, fail
+
+    # 2. Signed vs Unsigned Byte Extension (negative byte 0x85)
+    addi t0, x0, 0x85
+    sb   t0, 4(s0)
+
+    lbu  t1, 4(s0)
+    addi t2, x0, 0x85
+    bne  t1, t2, fail
+
+    lb   t1, 4(s0)
+    addi t2, x0, -123
+    bne  t1, t2, fail
+
+    # 3. Store Halfword and read Halfwords (LH vs LHU)
+    lui  t0, 0x00008
+    ori  t0, t0, 0x765
+    sh   t0, 8(s0)
+
+    lhu  t1, 8(s0)
+    bne  t1, t0, fail
+
+    lh   t1, 8(s0)
+    lui  t2, 0xFFFF8
+    ori  t2, t2, 0x765
+    bne  t1, t2, fail
+
+    lui  t0, 0x00004
+    ori  t0, t0, 0x321
+    sh   t0, 10(s0)
+
+    lw   t1, 8(s0)
+    lui  t2, 0x43218
+    ori  t2, t2, 0x765
+    bne  t1, t2, fail
+
+    # 4. Partial Byte Overwrite inside Word
+    addi t0, x0, 0xAA
+    sb   t0, 9(s0)
+
+    lw   t1, 8(s0)
+    lui  t2, 0x4321B
+    addi t2, t2, -1435
+    bne  t1, t2, fail
+
+    # Pass
+    lui  x30, 0x30000
+    addi x31, x0, 1
+    sw   x31, 0(x30)
+halt:
+    beq  x0, x0, halt
+
+fail:
+    lui  x30, 0x30000
+    addi x31, x0, 0
+    sw   x31, 0(x30)
+fail_loop:
+    beq  x0, x0, fail_loop
+"""
+
+# -----------------------------------------------------------------------------
+# Test 15: Pipeline Hazard Stress (Chained RAW, Load-to-Store, Dual-Stage)
+# -----------------------------------------------------------------------------
+ASM_HAZARD_STRESS = """
+# Test 15: Pipeline Hazard Stress & Forwarding Paths
+_start:
+    lui  sp, 0x00001
+    addi sp, sp, 0x000
+
+    # 1. Back-to-back Load-to-Store Forwarding
+    addi s1, x0, 0x42
+    sw   s1, 0(sp)
+    lw   s2, 0(sp)
+    sw   s2, 4(sp)
+    lw   s3, 4(sp)
+    bne  s3, s1, fail
+
+    # 2. Load followed immediately by dependent conditional branch
+    addi t0, x0, 100
+    sw   t0, 8(sp)
+    lw   t1, 8(sp)
+    beq  t1, t0, b_ok
+    beq  x0, x0, fail
+b_ok:
+
+    # 3. Simultaneous Dual-Stage Forwarding (EX/MEM and MEM/WB)
+    addi t2, x0, 10
+    addi t3, x0, 20
+    addi t4, x0, 30
+    add  t2, t2, t3     # t2 = 30
+    add  t3, t3, t4     # t3 = 50
+    add  t5, t2, t3     # t5 = 30 + 50 = 80
+    addi t6, x0, 80
+    bne  t5, t6, fail
+
+    # Reverse operand ordering
+    add  t5, t3, t2     # t5 = 50 + 30 = 80
+    bne  t5, t6, fail
+
+    # 4. Priority Forwarding (EX/MEM over MEM/WB when both target same rd)
+    addi t1, x0, 5
+    addi t1, x0, 15
+    add  t2, t1, x0     # Should forward 15
+    addi t3, x0, 15
+    bne  t2, t3, fail
+
+    # 5. Consecutive Branch Flushes & Not-Taken Flow
+    addi t1, x0, 1
+    addi t2, x0, 2
+    beq  t1, t2, fail   # not taken
+    bne  t1, t2, b1     # taken
+    beq  x0, x0, fail
+b1:
+    blt  t1, t2, b2     # taken
+    beq  x0, x0, fail
+b2:
+    bge  t1, t2, fail   # not taken
+
+    # Pass
+    lui  x30, 0x30000
+    addi x31, x0, 1
+    sw   x31, 0(x30)
+halt:
+    beq  x0, x0, halt
+
+fail:
+    lui  x30, 0x30000
+    addi x31, x0, 0
+    sw   x31, 0(x30)
+fail_loop:
+    beq  x0, x0, fail_loop
+"""
+
+# -----------------------------------------------------------------------------
+# Test 16: Upper Immediates & AUIPC PC-Relative Boundary Test
+# -----------------------------------------------------------------------------
+ASM_UPPER_IMM = """
+# Test 16: Upper Immediates (LUI & AUIPC)
+_start:
+    # 1. LUI edge values
+    lui  t0, 0x00000
+    bne  t0, x0, fail
+
+    lui  t1, 0xFFFFF
+    addi t2, x0, -1
+    slli t2, t2, 12
+    bne  t1, t2, fail
+
+    lui  t3, 0x80000
+    srai t4, t3, 31
+    addi t5, x0, -1
+    bne  t4, t5, fail
+
+    # 2. AUIPC PC-Relative Computation
+    auipc s0, 0
+    auipc s1, 0
+    sub   s2, s1, s0
+    addi  s3, x0, 4
+    bne   s2, s3, fail
+
+    # Jump relative to AUIPC
+    auipc t0, 0
+    addi  t0, t0, 24
+    jalr  x0, t0, 0
+    beq   x0, x0, fail
+    beq   x0, x0, fail
+    beq   x0, x0, fail
+
+target:
+    # Pass
+    lui  x30, 0x30000
+    addi x31, x0, 1
+    sw   x31, 0(x30)
+halt:
+    beq  x0, x0, halt
+
+fail:
+    lui  x30, 0x30000
+    addi x31, x0, 0
+    sw   x31, 0(x30)
+fail_loop:
+    beq  x0, x0, fail_loop
+"""
+
+# -----------------------------------------------------------------------------
+# Test 17: Call Stack & Recursion (Standard ABI Linkage & Stack Frames)
+# -----------------------------------------------------------------------------
+ASM_CALL_STACK_RECURSION = """
+# Test 17: Call Stack & Recursive Fibonacci
+_start:
+    lui  sp, 0x00002
+    addi sp, sp, 0x000
+    addi a0, x0, 7          # fib(7)
+    jal  ra, fib
+    addi t0, x0, 13         # Expected fib(7) = 13
+    bne  a0, t0, fail
+
+    addi a0, x0, 6          # fib(6)
+    jal  ra, fib
+    addi t0, x0, 8          # Expected fib(6) = 8
+    bne  a0, t0, fail
+
+    # Pass
+    lui  x30, 0x30000
+    addi x31, x0, 1
+    sw   x31, 0(x30)
+halt:
+    beq  x0, x0, halt
+
+fail:
+    lui  x30, 0x30000
+    addi x31, x0, 0
+    sw   x31, 0(x30)
+fail_loop:
+    beq  x0, x0, fail_loop
+
+fib:
+    addi t0, x0, 1
+    bge  t0, a0, fib_base
+
+    # Prologue: allocate 16-byte stack frame
+    addi sp, sp, -16
+    sw   ra, 12(sp)
+    sw   s0, 8(sp)
+    sw   s1, 4(sp)
+
+    add  s0, a0, x0
+
+    # Call fib(n-1)
+    addi a0, s0, -1
+    jal  ra, fib
+    add  s1, a0, x0
+
+    # Call fib(n-2)
+    addi a0, s0, -2
+    jal  ra, fib
+
+    # Result = fib(n-1) + fib(n-2)
+    add  a0, s1, a0
+
+    # Epilogue: restore stack frame
+    lw   s1, 4(sp)
+    lw   s0, 8(sp)
+    lw   ra, 12(sp)
+    addi sp, sp, 16
+    jalr x0, ra, 0
+
+fib_base:
+    jalr x0, ra, 0
+"""
+
+# -----------------------------------------------------------------------------
+# Test 18: Real-Time Timer Interrupt Preemption (mtimecmp & CSRs)
+# -----------------------------------------------------------------------------
+ASM_TIMER_IRQ = """
+# Test 18: Real-Time Hardware Timer Interrupt Preemption
+_start:
+    lui  t0, 0x00000
+    ori  t0, t0, timer_isr
+    csrw mtvec, t0
+
+    addi s0, x0, 0
+    addi s1, x0, 0
+
+    # Read current mtime
+    lui  t1, 0x20000
+    lw   t2, 0(t1)
+
+    # Set mtimecmp = mtime + 30
+    addi t2, t2, 30
+    sw   t2, 8(t1)
+
+    # Enable MTIE (bit 7 = 0x80)
+    addi t3, x0, 128
+    csrw mie, t3
+
+    # Enable global interrupts: set MIE (bit 3 = 0x08)
+    addi t3, x0, 8
+    csrs mstatus, t3
+
+work_loop:
+    addi s0, s0, 1
+    bne  s1, x0, test_done
+    addi t4, x0, 500
+    blt  s0, t4, work_loop
+
+    # Timed out waiting for ISR
+    beq  x0, x0, fail
+
+timer_isr:
+    addi s1, x0, 1
+
+    # Disable timer condition: mtimecmp = 0xFFFFFFFF
+    lui  t1, 0x20000
+    lui  t2, 0xFFFFF
+    ori  t2, t2, 0xFFF
+    sw   t2, 8(t1)
+
+    # Disable MTIE
+    csrw mie, x0
+
+    mret
+
+test_done:
+    addi t5, x0, 5
+    blt  s0, t5, fail
+
+    # Pass
+    lui  x30, 0x30000
+    addi x31, x0, 1
+    sw   x31, 0(x30)
+halt:
+    beq  x0, x0, halt
+
+fail:
+    lui  x30, 0x30000
+    addi x31, x0, 0
+    sw   x31, 0(x30)
+fail_loop:
+    beq  x0, x0, fail_loop
+"""
+
+# -----------------------------------------------------------------------------
+# Test 19: Tactical Cryptography: ChaCha20 Quarter-Round Stream Cipher
+# -----------------------------------------------------------------------------
+ASM_CRYPTO_PRIMITIVES = """
+# Test 19: ChaCha20 ARX Cryptographic Quarter-Round
+_start:
+    lui  s0, 0x11111
+    ori  s0, s0, 0x111
+
+    lui  s1, 0x01020
+    ori  s1, s1, 0x304
+
+    lui  s2, 0x9B8D7
+    addi s2, s2, -189
+
+    lui  s3, 0x01234
+    ori  s3, s3, 0x567
+
+    # Round 1
+    add  s0, s0, s1
+    xor  s3, s3, s0
+    slli t0, s3, 16
+    srli t1, s3, 16
+    or   s3, t0, t1
+
+    # Round 2
+    add  s2, s2, s3
+    xor  s1, s1, s2
+    slli t0, s1, 12
+    srli t1, s1, 20
+    or   s1, t0, t1
+
+    # Round 3
+    add  s0, s0, s1
+    xor  s3, s3, s0
+    slli t0, s3, 8
+    srli t1, s3, 24
+    or   s3, t0, t1
+
+    # Round 4
+    add  s2, s2, s3
+    xor  s1, s1, s2
+    slli t0, s1, 7
+    srli t1, s1, 25
+    or   s1, t0, t1
+
+    # Verify a = 0xea2a92f4
+    lui  t2, 0xEA2A9
+    ori  t2, t2, 0x2F4
+    bne  s0, t2, fail
+
+    # Verify b = 0xcb1cf8ce
+    lui  t2, 0xCB1D0
+    addi t2, t2, -1842
+    bne  s1, t2, fail
+
+    # Verify c = 0x4581472e
+    lui  t2, 0x45814
+    ori  t2, t2, 0x72E
+    bne  s2, t2, fail
+
+    # Verify d = 0x5881c4bb
+    lui  t2, 0x5881C
+    ori  t2, t2, 0x4BB
+    bne  s3, t2, fail
+
+    # Pass
+    lui  x30, 0x30000
+    addi x31, x0, 1
+    sw   x31, 0(x30)
+halt:
+    beq  x0, x0, halt
+
+fail:
+    lui  x30, 0x30000
+    addi x31, x0, 0
+    sw   x31, 0(x30)
+fail_loop:
+    beq  x0, x0, fail_loop
+"""
+
+# -----------------------------------------------------------------------------
+# Test 20: Machine-Mode Synchronous Trap (ECALL System Call)
+# -----------------------------------------------------------------------------
+ASM_ECALL_EBREAK = """
+# Test 20: Machine-Mode Synchronous Trap (ECALL)
+_start:
+    addi x1, x0, 10
+    addi x2, x0, 20
+    add  x3, x1, x2
+    ecall
+    beq  x0, x0, _start
+"""
+
 ALL_TESTS = {
     "test_arithmetic":         ASM_ARITHMETIC,
     "test_branch":             ASM_BRANCH,
@@ -865,7 +1309,14 @@ ALL_TESTS = {
     "test_crc32_radio":        ASM_CRC32_RADIO,
     "test_matrix_rotation":    ASM_MATRIX_ROTATION,
     "test_tactical_telemetry": ASM_TACTICAL_TELEMETRY,
-    "test_interrupt_trap":     ASM_INTERRUPT_TRAP
+    "test_interrupt_trap":     ASM_INTERRUPT_TRAP,
+    "test_subword_memory":     ASM_SUBWORD_MEMORY,
+    "test_hazard_stress":      ASM_HAZARD_STRESS,
+    "test_upper_imm":          ASM_UPPER_IMM,
+    "test_call_stack_recursion": ASM_CALL_STACK_RECURSION,
+    "test_timer_irq":          ASM_TIMER_IRQ,
+    "test_crypto_primitives":  ASM_CRYPTO_PRIMITIVES,
+    "test_ecall_ebreak":       ASM_ECALL_EBREAK
 }
 
 def main():

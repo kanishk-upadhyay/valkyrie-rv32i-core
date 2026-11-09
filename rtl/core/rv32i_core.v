@@ -314,7 +314,7 @@ module rv32i_core #(
             funct3_id_ex     <= funct3_id;
 
             alu_op_id_ex     <= alu_op_id;
-            alu_src_a_id_ex  <= 1'b0;
+            alu_src_a_id_ex  <= alu_src_a_id;
             alu_src_b_id_ex  <= alu_src_b_id;
             mem_read_id_ex   <= mem_read_id;
             mem_write_id_ex  <= mem_write_id;
